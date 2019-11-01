@@ -13,3 +13,9 @@ SlotWhitelist: The slots you want to monitor. For instance, you don't use your C
 ```
 NotifySlotStatus.ps1 -Mode 1 SlotWhitelist "01,02"
 ```
+### Configuration
+To setup email notifications, configure the block that starts with
+```
+#Define the Send-MailMessage variables to receive notifications
+```
+Ideally, this script should be used with Task Scheduler (Windows) or Crontab (Linux).
