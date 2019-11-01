@@ -18,4 +18,5 @@ To setup email notifications, configure the block that starts with
 ```
 #Define the Send-MailMessage variables to receive notifications
 ```
+If you're on Windows, running this script should be no issue. If you're on Linux, you'll need to install Powershell first.
 Ideally, this script should be used with Task Scheduler (Windows) or Crontab (Linux).
