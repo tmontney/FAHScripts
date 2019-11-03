@@ -8,22 +8,6 @@ param (
     $SlotWhitelist
 )
 
-function Send-Command($cmd){
-    [Byte[]]$b = [System.Text.ASCIIEncoding]::ASCII.GetBytes($cmd + ([char]10))
-    [Net.Sockets.NetworkStream]$wr = $tClient.GetStream()
-    $wr.Write($b, 0, $b.Length)
-    $wr.Flush()
-}
-
-function Receive-Response(){
-    $b_r = [Byte[]]::new(8192)
-    [Net.Sockets.NetworkStream]$ns = $tClient.GetStream()
-    $ns.ReadTimeout = 3000
-    $ns.Read($b_r, 0, $b_r.Length)
-    $ns.Flush()
-    return [System.Text.ASCIIEncoding]::ASCII.GetString($b_r)
-}
-
 function Get-WhitelistedSlots(){
     $WhitelistedSlots = [System.Collections.ArrayList]::new()
     $_SlotWhitelist = $SlotWhitelist.Split(",")
@@ -48,25 +32,27 @@ $SendToEmail = "myemail@domain.com"
 $SmtpServer = "mail.domain.com"
 $SmtpPort = 587
 
-#Ensure this package is installed
+#Ensure this module is installed
 Import-Module newtonsoft.json
+#Ensure this module is in the same directory
+Import-Module ".\Folding@Home.psm1"
 
 #Connect to local instance
-$tClient = [Net.Sockets.TcpClient]::new("127.0.0.1", 36330)
-
+$session = Connect-FoldingInstance -addr "127.0.0.1" -port 36330
+if($session.Connected -eq $false){
+    #Break; connection failed
+    Exit 233
+}
 #Send slot-info command
-Send-Command("slot-info")
+Send-Command -session $session -cmd "slot-info"
 #Sleep to give time for processing; only banner displayed otherwise
 Start-Sleep -Seconds 1
 
 #Receive slot-info command response
-[String]$SlotInfoStr = Receive-Response
+[String]$SlotInfoStr = Receive-Response($session)
 
 #Convert slot-info response into object
-$StartOpenBracket = $SlotInfoStr.IndexOf("[", $SlotInfoStr.IndexOf("PyON"))
-$EndCloseBracket = $SlotInfoStr.LastIndexOf("]")
-$JsonStr = $SlotInfoStr.Substring($StartOpenBracket, ($EndCloseBracket - $StartOpenBracket) + 1).Replace("False", """False""").Replace("True", """True""")
-$SlotInfo = [Newtonsoft.Json.JsonConvert]::DeserializeObject($JsonStr)
+$SlotInfo = Convert-ResponseToObject($SlotInfoStr)
 
 #Include only the slots provided by the user; if no whitelist, use entire list
 $WhitelistedSlots = Get-WhitelistedSlots
@@ -88,7 +74,5 @@ if($Mode -eq 0){
     }
 }
 
-if($tClient){
-    $tClient.Close()
-    $tClient.Dispose()
-}
+#Dispose of used resources, disconnect from the instance
+Disconnect-FoldingInstance($session)
